@@ -1,0 +1,9 @@
+{
+    "slug": "gift-wrap",
+    "name": "Gift wrapping",
+    "version": "1.0.0",
+    "type": "module",
+    "namespace": "Modules\\GiftWrap\\",
+    "provider": "Modules\\GiftWrap\\GiftWrapServiceProvider",
+    "requires": { "core": "^1.0" }
+}

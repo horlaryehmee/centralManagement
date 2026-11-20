@@ -1,0 +1,8 @@
+{
+    "slug": "acme-pay",
+    "name": "Acme Pay (custom payment integration)",
+    "version": "1.0.0",
+    "type": "extension",
+    "namespace": "Extensions\\AcmePay\\",
+    "requires": { "core": "^1.0" }
+}

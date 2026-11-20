@@ -1,0 +1,21 @@
+# Lets you upload the whole app straight into public_html (or any folder) and
+# just open the address. Every request is served from public/, so nothing
+# outside it (.env, storage, vendor…) can ever be reached from the web.
+# (Not used when the domain's document root already points at public/.)
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Extra safety if rewriting is unavailable.
+<FilesMatch "^(\.ht.*|\.env.*|composer\.(json|lock)|package(-lock)?\.json|artisan|VERSION|phpunit\.xml)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>

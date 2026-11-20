@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+@source '../views';
+@source '../js';
+
+@theme inline {
+    --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+    --animate-page-in: page-in 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+    @keyframes page-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: none; }
+    }
+}
+
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+    body {
+        @apply bg-zinc-50 text-zinc-900;
+    }
+    :focus-visible {
+        outline: 2px solid #0ea5e9;
+        outline-offset: 2px;
+    }
+    /* Keep content inside narrow screens: grid items may shrink, long words/IDs may break. */
+    .app-shell .grid > * {
+        min-width: 0;
+    }
+    .app-shell main {
+        overflow-wrap: break-word;
+    }
+}
+
+@utility input {
+    @apply block w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-base text-zinc-900 shadow-xs transition-[border-color,box-shadow] placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/8 focus:outline-none disabled:bg-zinc-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-sm sm:focus:ring-2;
+}
+
+@utility input-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500/15;
+}
+
+.no-scrollbar {
+    scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
