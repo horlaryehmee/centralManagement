@@ -3,7 +3,7 @@ import { Rocket } from 'lucide-react';
 import { Button, TextInput } from '@/Components/ui';
 
 export default function Login() {
-    const { app_name } = usePage().props;
+    const { app_name, flash } = usePage().props;
     const form = useForm({ email: '', password: '', remember: false });
 
     return (
@@ -21,6 +21,7 @@ export default function Login() {
                 </span>
                 <h1 className="mt-4 text-xl font-bold tracking-tight">{app_name}</h1>
                 <p className="mt-1 text-sm text-zinc-500">Sign in to manage installations and updates.</p>
+                {flash?.error && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{flash.error}</p>}
                 <div className="mt-6 space-y-4">
                     <TextInput label="Email" type="email" autoComplete="username" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} error={form.errors.email} autoFocus required />
                     <TextInput label="Password" type="password" autoComplete="current-password" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} error={form.errors.password} required />

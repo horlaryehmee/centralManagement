@@ -23,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Not installed yet → the setup wizard (/install).
         $middleware->prepend(\App\Http\Middleware\EnsureInstalled::class);
+        // Site set up on https:// → always use it (the login cookie is HTTPS-only).
+        $middleware->prepend(\App\Http\Middleware\RedirectToHttps::class);
         $middleware->web(append: [HandleInertiaRequests::class]);
         $middleware->alias([
             'central.installation' => AuthenticateInstallation::class,
@@ -36,4 +38,15 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // The installation API always answers in JSON.
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
+
+        // Stale form (page left open, session expired, or cookie lost): go back and ask to retry
+        // instead of showing "419 Page Expired".
+        $exceptions->respond(function ($response, \Throwable $e, Request $request) {
+            if ($response->getStatusCode() === 419 && ! $request->is('api/*')) {
+                return back(fallback: '/')->withInput($request->except('password', 'password_confirmation', '_token'))
+                    ->with('error', 'Your session expired. Please try again.');
+            }
+
+            return $response;
+        });
     })->create();
