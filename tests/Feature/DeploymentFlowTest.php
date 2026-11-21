@@ -239,4 +239,27 @@ class DeploymentFlowTest extends TestCase
         }
         $this->post('/deployments/preview', ['release_id' => $release->id, 'installations' => [$i->id]])->assertOk();
     }
+
+    public function test_a_refused_deploy_returns_to_the_confirmation_page_with_the_reason(): void
+    {
+        $this->actingAs($this->admin());
+        [$i] = $this->connectedInstallation();
+        $release = $this->publishedRelease($this->coreZip('1.1.0'));
+
+        $this->post('/deployments/preview', ['release_id' => $release->id, 'installations' => [$i->id]])->assertOk();
+
+        // "Deploy" refused (here: a test site that isn't part of the deployment). The browser is sent
+        // back to the confirmation page, which must load (it used to answer "405 Method Not Allowed").
+        $this->from('/deployments/preview')
+            ->post('/deployments', ['release_id' => $release->id, 'installations' => [$i->id], 'canary_installation_id' => 999999])
+            ->assertRedirect('/deployments/preview')
+            ->assertSessionHasErrors('canary_installation_id');
+
+        $this->get('/deployments/preview')->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Deployments/Confirm')->where('release.id', $release->id)->where('rows.0.id', $i->id));
+
+        // Without a selection in the session, it goes back to step 1.
+        session()->forget('deployment_preview');
+        $this->get('/deployments/preview')->assertRedirect('/deployments/create');
+    }
 }

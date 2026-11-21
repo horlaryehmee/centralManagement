@@ -46,7 +46,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('deployments', [DeploymentController::class, 'index'])->name('deployments.index');
     Route::get('deployments/create', [DeploymentController::class, 'create'])->name('deployments.create');
-    Route::post('deployments/preview', [DeploymentController::class, 'preview'])->name('deployments.preview');
+    Route::match(['get', 'post'], 'deployments/preview', [DeploymentController::class, 'preview'])->name('deployments.preview');
     Route::post('deployments', [DeploymentController::class, 'store'])->name('deployments.store');
     Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])->name('deployments.show');
     Route::post('deployments/{deployment}/cancel', [DeploymentController::class, 'cancel'])->name('deployments.cancel');

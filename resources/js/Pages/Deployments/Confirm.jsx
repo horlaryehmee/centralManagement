@@ -25,7 +25,9 @@ export default function DeploymentConfirm({ release, rows, selection }) {
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
-                    form.transform((d) => ({ ...d, scheduled_at: d.scheduled_at ? new Date(d.scheduled_at).toISOString() : null, canary_installation_id: d.canary_installation_id || null })).post('/deployments');
+                    // transform() returns nothing in Inertia 2, so it can't be chained with .post().
+                    form.transform((d) => ({ ...d, scheduled_at: d.scheduled_at ? new Date(d.scheduled_at).toISOString() : null, canary_installation_id: d.canary_installation_id || null }));
+                    form.post('/deployments');
                 }}
                 className="grid gap-6 lg:grid-cols-[1fr_360px]"
             >

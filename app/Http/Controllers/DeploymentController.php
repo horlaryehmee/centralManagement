@@ -47,10 +47,23 @@ class DeploymentController extends Controller
         ]);
     }
 
-    /** Step 2: confirmation screen showing exactly which installations will (and won't) get it. */
-    public function preview(Request $request): Response
+    /**
+     * Step 2: confirmation screen showing exactly which installations will (and won't) get it.
+     * Also reachable by GET (the selection is kept in the session): when "Deploy" is refused
+     * (validation, expired session), the browser is sent back here and must see the reason,
+     * not a "405 Method Not Allowed".
+     */
+    public function preview(Request $request): Response|RedirectResponse
     {
-        $data = $request->validate(['release_id' => ['required', 'exists:releases,id'], 'installations' => ['required', 'array', 'min:1'], 'installations.*' => ['integer']]);
+        $input = $request->isMethod('post')
+            ? $request->only('release_id', 'installations', 'selection')
+            : (array) $request->session()->get('deployment_preview', []);
+        if (! $input) {
+            return redirect()->route('deployments.create');
+        }
+        $request->session()->put('deployment_preview', $input);
+
+        $data = Validator::make($input, ['release_id' => ['required', 'exists:releases,id'], 'installations' => ['required', 'array', 'min:1'], 'installations.*' => ['integer']])->validate();
         $release = Release::query()->with('client:id,name')->findOrFail($data['release_id']);
         $installations = Installation::query()->with('client', 'modules')->whereIn('id', $data['installations'])->orderBy('name')->get();
 
@@ -62,7 +75,7 @@ class DeploymentController extends Controller
                 'current' => $release->type === 'core' ? $r['installation']->core_version : $r['installation']->modules->firstWhere('slug', $release->slug)?->version,
                 'ok' => $r['ok'], 'action' => $r['action'], 'reasons' => $r['reasons'],
             ])->values(),
-            'selection' => $request->input('selection', []),
+            'selection' => $input['selection'] ?? [],
         ]);
     }
 
