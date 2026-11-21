@@ -90,7 +90,7 @@ class GithubImporter
             }
             // GitHub publishes a SHA-256 digest for release assets: check the file arrived intact.
             if (! empty($asset['digest']) && str_starts_with($asset['digest'], 'sha256:') && ! hash_equals(substr($asset['digest'], 7), hash_file('sha256', $tmp))) {
-                throw ValidationException::withMessages(['github' => 'The downloaded package does not match GitHub\'s checksum. Try again.']);
+                throw ValidationException::withMessages(['github' => 'The downloaded package ('.number_format(filesize($tmp)).' bytes) does not match GitHub\'s SHA-256 checksum. Try again.']);
             }
 
             $release = $this->releases->createFromPackage($tmp, [
@@ -107,6 +107,8 @@ class GithubImporter
             }
 
             $release->update(['github_source_id' => $source->id, 'github_release_id' => $gh['id'], 'github_url' => $gh['html_url'] ?? null]);
+            // A successful import replaces any error left by an earlier attempt.
+            $source->update(['last_error' => null]);
             Event::log('release.github_import', "Imported {$release->label()} from GitHub ({$source->repository} {$gh['tag_name']}).", ['user' => $user, 'client' => $source->client]);
 
             if ($source->auto_publish) {

@@ -96,7 +96,7 @@ class GithubImportTest extends TestCase
         $core = GithubSource::create(['repository' => 'acme/catalog', 'type' => 'core']);
         $moduleRepo = GithubSource::create(['repository' => 'acme/catalog', 'type' => 'module']);
 
-        foreach ([[$core, 13, 'says version 1.5.0'], [$core, 14, "does not match GitHub's checksum"]] as [$src, $id, $msg]) {
+        foreach ([[$core, 13, 'says version 1.5.0'], [$core, 14, "does not match GitHub's SHA-256 checksum"]] as [$src, $id, $msg]) {
             try {
                 app(GithubImporter::class)->import($src, $id);
                 $this->fail('Should have been refused');
