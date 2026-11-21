@@ -22,6 +22,12 @@ class GithubImportTest extends TestCase
         Http::fake(function ($request) use ($releases, $zips) {
             $path = parse_url($request->url(), PHP_URL_PATH);
             if (preg_match('~/releases/assets/(\d+)$~', $path, $m)) {
+                // Like the real API: the file only when octet-stream is the *only* accepted type,
+                // otherwise the asset's JSON description.
+                if ($request->header('Accept') !== ['application/octet-stream']) {
+                    return Http::response(['id' => (int) $m[1], 'name' => 'asset', 'state' => 'uploaded'], 200);
+                }
+
                 return Http::response(file_get_contents($zips[$m[1]]), 200, ['Content-Type' => 'application/octet-stream']);
             }
             if (preg_match('~/repos/acme/catalog/releases/(\d+)$~', $path, $m)) {

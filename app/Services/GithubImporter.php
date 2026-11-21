@@ -74,13 +74,19 @@ class GithubImporter
 
         $tmp = tempnam(sys_get_temp_dir(), 'ghrel');
         try {
+            // replaceHeaders, not withHeaders: withHeaders would *add* octet-stream to the JSON Accept
+            // header, and GitHub then answers with the asset's JSON description instead of the file.
             $download = $this->client($source)
-                ->withHeaders(['Accept' => 'application/octet-stream'])
+                ->replaceHeaders(['Accept' => 'application/octet-stream'])
                 ->timeout(900)
                 ->withOptions(['sink' => $tmp])
                 ->get($asset['url']);
+            clearstatcache(true, $tmp);
             if (! $download->successful() || filesize($tmp) === 0) {
                 throw ValidationException::withMessages(['github' => 'Downloading the package from GitHub failed ('.$download->status().'). Try again.']);
+            }
+            if (str_contains(strtolower((string) $download->header('Content-Type')), 'json') || ($asset['size'] && filesize($tmp) !== (int) $asset['size'])) {
+                throw ValidationException::withMessages(['github' => 'GitHub didn\'t send the package file (got '.number_format(filesize($tmp)).' bytes, expected '.number_format((int) $asset['size']).'). Try again.']);
             }
             // GitHub publishes a SHA-256 digest for release assets: check the file arrived intact.
             if (! empty($asset['digest']) && str_starts_with($asset['digest'], 'sha256:') && ! hash_equals(substr($asset['digest'], 7), hash_file('sha256', $tmp))) {
