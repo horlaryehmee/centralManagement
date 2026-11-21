@@ -2,7 +2,12 @@ import '../css/app.css';
 import '@fontsource-variable/plus-jakarta-sans';
 
 import { createInertiaApp } from '@inertiajs/react';
+import axios from 'axios';
 import { createRoot } from 'react-dom/client';
+import { xsrfCookieName } from './lib/csrf';
+
+// Inertia sends the CSRF token from this app's own cookie (see App\Http\Middleware\ValidateCsrfToken).
+axios.defaults.xsrfCookieName = xsrfCookieName();
 
 createInertiaApp({
     title: (title) => (title ? `${title} · Central` : 'Central'),

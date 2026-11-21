@@ -26,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Site set up on https:// → always use it (the login cookie is HTTPS-only).
         // Appended so it runs after TrustProxies: behind a proxy, https must be recognised first.
         $middleware->append(\App\Http\Middleware\RedirectToHttps::class);
+        // CSRF cookie named after this app, so another site's domain-wide "XSRF-TOKEN" can't break it.
+        $middleware->web(replace: [
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class => \App\Http\Middleware\ValidateCsrfToken::class,
+        ]);
         $middleware->web(append: [HandleInertiaRequests::class]);
         $middleware->alias([
             'central.installation' => AuthenticateInstallation::class,

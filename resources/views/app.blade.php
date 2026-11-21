@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="xsrf-cookie" content="{{ \App\Http\Middleware\ValidateCsrfToken::cookieName() }}">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#18181b">
     <title inertia>{{ config('app.name') }}</title>
