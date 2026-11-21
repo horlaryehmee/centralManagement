@@ -41,7 +41,9 @@ class SessionSafetyTest extends TestCase
     {
         Route::middleware('web')->post('/_test-expired', fn () => throw new TokenMismatchException('CSRF token mismatch.'));
 
+        // 303, not 302: browsers repeat a 302 with the same method (PUT/PATCH on a GET-only page = 405).
         $this->from('/login')->post('/_test-expired', ['email' => 'a@b.c', 'password' => 'secret'])
+            ->assertStatus(303)
             ->assertRedirect('/login')
             ->assertSessionHas('error', 'Your session expired. Please try again.')
             ->assertSessionMissing('_old_input.password');

@@ -44,8 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // instead of showing "419 Page Expired".
         $exceptions->respond(function ($response, \Throwable $e, Request $request) {
             if ($response->getStatusCode() === 419 && ! $request->is('api/*')) {
+                // 303 for PUT/PATCH/DELETE/POST: browsers repeat a 302 with the same method, which
+                // would hit a GET-only page ("405 Method Not Allowed").
                 return back(fallback: '/')->withInput($request->except('password', 'password_confirmation', '_token'))
-                    ->with('error', 'Your session expired. Please try again.');
+                    ->with('error', 'Your session expired. Please try again.')
+                    ->setStatusCode($request->isMethod('GET') ? 302 : 303);
             }
 
             return $response;
