@@ -24,7 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Not installed yet → the setup wizard (/install).
         $middleware->prepend(\App\Http\Middleware\EnsureInstalled::class);
         // Site set up on https:// → always use it (the login cookie is HTTPS-only).
-        $middleware->prepend(\App\Http\Middleware\RedirectToHttps::class);
+        // Appended so it runs after TrustProxies: behind a proxy, https must be recognised first.
+        $middleware->append(\App\Http\Middleware\RedirectToHttps::class);
         $middleware->web(append: [HandleInertiaRequests::class]);
         $middleware->alias([
             'central.installation' => AuthenticateInstallation::class,

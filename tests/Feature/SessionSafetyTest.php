@@ -20,6 +20,16 @@ class SessionSafetyTest extends TestCase
             ->assertStatus(301);
     }
 
+    public function test_https_behind_a_proxy_is_not_redirected(): void
+    {
+        config(['app.url' => 'https://central.example.com']);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])
+            ->withHeader('X-Forwarded-Proto', 'https')
+            ->get('http://central.example.com/login')
+            ->assertOk();
+    }
+
     public function test_no_redirect_when_site_address_is_http(): void
     {
         config(['app.url' => 'http://localhost']);
