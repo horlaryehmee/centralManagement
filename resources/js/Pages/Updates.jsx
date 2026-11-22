@@ -1,51 +1,35 @@
 import { router, useForm } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Circle, Download, ExternalLink, History, Loader2, PowerOff, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
+import axios from 'axios';
+import { AlertTriangle, CheckCircle2, Circle, Download, GitBranch, GitCommitHorizontal, History, Loader2, PowerOff, RefreshCw, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, Card, ConfirmModal, FormActions, Modal, PageHeader, TextInput, Toggle } from '@/Components/ui';
 import CentralLayout from '@/Layouts/CentralLayout';
-import { xsrfCookieName } from '@/lib/csrf';
 
 const STEP_LABELS = {
-    download: 'Downloading the update',
-    backup: 'Backing up your database',
-    extract: 'Unpacking and checking the files',
-    install: 'Installing the new version',
-    finish: 'Updating the database and finishing',
+    fetch: 'Getting the latest version from GitHub',
+    backup: 'Backing up the database',
+    pull: 'Updating the files',
+    dependencies: 'Installing PHP packages (Composer, if needed)',
+    finish: 'Running migrations and finishing',
 };
 
-function xsrf() {
-    // Letters, digits and dashes only, so safe in a pattern as is.
-    const name = xsrfCookieName();
-    const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]+)`));
-    return m ? decodeURIComponent(m[1]) : '';
-}
-
-async function post(url) {
-    let res;
+/** POST one step; turns host timeouts and errors into plain messages. */
+async function post(url, data = {}) {
     try {
-        res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf(), 'X-Requested-With': 'XMLHttpRequest' } });
-    } catch {
-        throw new Error('Lost the connection to the server. Check your internet connection, then press Try again.');
-    }
-    let data = {};
-    try {
-        data = await res.json();
-    } catch {
-        /* not JSON (e.g. a host timeout page) */
-    }
-    if (!res.ok) {
-        if (data.message) throw new Error(data.message);
+        return (await axios.post(url, data, { headers: { Accept: 'application/json' } })).data;
+    } catch (e) {
+        const res = e.response;
+        if (!res) throw new Error('Lost the connection to the server. Check your internet connection, then press Try again.');
+        if (res.data?.message) throw new Error(res.data.message);
         if (res.status === 419) throw new Error('Your session expired. Reload this page and try again.');
         if ([502, 503, 504, 524].includes(res.status)) throw new Error('This step took longer than your host allows for one request. Press Try again: it continues where it stopped.');
         throw new Error(`The server returned an error (${res.status}). Press Try again.`);
     }
-    return data;
 }
 
-const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const date = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 const nextStep = (steps, done) => (done ? steps[steps.indexOf(done) + 1] : steps[0]);
 
-/** Live progress of a running update. */
 function Progress({ steps, states, error }) {
     return (
         <ol className="space-y-3">
@@ -74,13 +58,13 @@ function Progress({ steps, states, error }) {
 function Checks({ checks }) {
     const failing = checks.filter((c) => !c.ok);
     return (
-        <Card title="Server readiness" description={failing.length ? 'Fix these before updating.' : 'Your hosting is ready for one-click updates.'}>
+        <Card title="Server readiness" description={failing.length ? 'Fix these before updating.' : 'Your server is ready for one-click updates from GitHub.'}>
             <ul className="space-y-2.5">
                 {checks.map((c) => (
                     <li key={c.label} className="flex items-start gap-2.5 text-sm">
                         {c.ok ? <CheckCircle2 size={18} className="mt-px shrink-0 text-emerald-600" /> : <XCircle size={18} className="mt-px shrink-0 text-red-600" />}
                         <span className="min-w-0">
-                            <span className="block text-zinc-800">{c.label}</span>
+                            <span className="block break-all text-zinc-800">{c.label}</span>
                             {!c.ok && <span className="block text-xs text-zinc-500">{c.detail}</span>}
                         </span>
                     </li>
@@ -91,7 +75,7 @@ function Checks({ checks }) {
 }
 
 function Source({ source }) {
-    const form = useForm({ repository: source.repository || '', token: '', remove_token: false });
+    const form = useForm({ repository: source.repository || '', branch: source.branch || '', token: '', remove_token: false });
     return (
         <form
             onSubmit={(e) => {
@@ -99,7 +83,7 @@ function Source({ source }) {
                 form.put('/updates/source', { preserveScroll: true, onSuccess: () => form.setData((d) => ({ ...d, token: '', remove_token: false })) });
             }}
         >
-            <Card title="Update source" description={'The GitHub repository of Central Management. Each release there carries a ready-to-install zip built by GitHub Actions.'}>
+            <Card title="Update source" description="The GitHub repository and branch this app updates from.">
                 <div className="space-y-5">
                     <TextInput
                         label="GitHub repository"
@@ -110,6 +94,7 @@ function Source({ source }) {
                         help={source.env_repository && !form.data.repository ? `Leave blank to use ${source.env_repository} (from the server configuration).` : 'For example my-company/central-management, or the full github.com link.'}
                         optional={!!source.env_repository}
                     />
+                    <TextInput label="Branch" placeholder={source.env_branch || 'main'} value={form.data.branch} onChange={(e) => form.setData('branch', e.target.value)} error={form.errors.branch} help="Leave blank for main." optional />
                     <TextInput
                         label="Access token"
                         type="password"
@@ -118,7 +103,7 @@ function Source({ source }) {
                         value={form.data.token}
                         onChange={(e) => form.setData('token', e.target.value)}
                         error={form.errors.token}
-                        help="Needed for private repositories. A fine-grained token with read-only access to the repository's Contents is enough. Stored encrypted."
+                        help="Needed for a private repository: a fine-grained token with read-only access to the repository's Contents. Stored encrypted and never written into Git's files."
                         optional
                     />
                     {source.has_token && <Toggle label="Remove the saved token" checked={form.data.remove_token} onChange={(v) => form.setData('remove_token', v)} />}
@@ -131,14 +116,12 @@ function Source({ source }) {
     );
 }
 
-function Backups({ backups, onRestore }) {
+function Backups({ backups, onRollback }) {
     const [confirm, setConfirm] = useState(null);
     if (!backups.length) return null;
-    const label = (b) => (b.kind && b.kind !== 'core' ? `${b.slug} ${b.version === '0.0.0' ? '(not installed)' : b.version}` : `version ${b.version}`);
-    // Rolling back to an older entry also undoes every later update of the same item.
-    const undone = (b) => backups.filter((o) => o.kind === b.kind && o.slug === b.slug && o.id >= b.id).map((o) => o.replaced_by).filter(Boolean);
+    const later = (b) => backups.filter((o) => o.id >= b.id).length;
     return (
-        <Card title="Previous versions" description="The last versions are kept automatically after each update, so you can roll back with one click. Older ones are removed." padded={false}>
+        <Card title="Previous versions" description="Saved automatically before each update, so you can go back with one click." padded={false}>
             <ul className="divide-y divide-zinc-100">
                 {backups.map((b) => (
                     <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 sm:px-5">
@@ -146,12 +129,12 @@ function Backups({ backups, onRestore }) {
                             <History size={17} />
                         </span>
                         <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium text-zinc-900">
-                                {b.kind && b.kind !== 'core' ? `${b.slug} ${b.version === '0.0.0' ? '(not installed)' : b.version}` : `Version ${b.version}`}
+                            <span className="block truncate text-sm font-medium text-zinc-900">
+                                <code className="font-mono">{b.short}</code> {b.subject}
                             </span>
                             <span className="block text-xs text-zinc-500">
                                 {b.replaced_by ? `Replaced by ${b.replaced_by}` : 'Backup'}
-                                {b.created_at ? ` · ${formatDate(b.created_at)}` : ''}
+                                {b.created_at ? ` · ${date(b.created_at)}` : ''}
                             </span>
                         </span>
                         <span className="flex w-full gap-2 sm:w-auto">
@@ -171,14 +154,14 @@ function Backups({ backups, onRestore }) {
                 open={!!confirm}
                 onClose={() => setConfirm(null)}
                 onConfirm={() => {
-                    onRestore(confirm);
+                    onRollback(confirm);
                     setConfirm(null);
                 }}
-                title={confirm ? `Roll back to ${label(confirm)}?` : ''}
+                title={confirm ? `Roll back to ${confirm.short}?` : ''}
                 confirmLabel="Roll back"
                 message={
                     confirm
-                        ? `This undoes the update${undone(confirm).length > 1 ? 's' : ''} to ${undone(confirm).join(' and ')}: the app's files go back to ${label(confirm)} and the database changes those updates made are undone. Central Management is offline for a few seconds. Clients, websites, releases and backups stay; anything stored only in features added by ${undone(confirm).length > 1 ? 'those updates' : 'that update'} is removed. The database backup can still be downloaded first.`
+                        ? `This undoes ${later(confirm) > 1 ? `the last ${later(confirm)} updates` : 'the last update'}: their database changes are undone and the files go back to ${confirm.short}. Central Management is offline for a few seconds. Clients, websites, releases and backups stay. The database backup can still be downloaded first.`
                         : ''
                 }
             />
@@ -186,7 +169,7 @@ function Backups({ backups, onRestore }) {
     );
 }
 
-export default function Updates({ status, checks, pending, down, backups, steps, source }) {
+export default function Updates({ status, connected, justConnected, checks, pending, down, backups, steps, source }) {
     const ready = checks.every((c) => c.ok);
     const [states, setStates] = useState({});
     const [running, setRunning] = useState(false);
@@ -194,8 +177,10 @@ export default function Updates({ status, checks, pending, down, backups, steps,
     const [failed, setFailed] = useState(null);
     const [done, setDone] = useState(null);
     const [confirm, setConfirm] = useState(false);
-    const [restoring, setRestoring] = useState(null);
+    const [discard, setDiscard] = useState(false);
+    const [rollingBack, setRollingBack] = useState(null);
     const active = running || failed || done || Object.keys(states).length > 0;
+    const changed = !justConnected ? status.changed_files || [] : [];
 
     const run = async (from) => {
         setRunning(true);
@@ -210,7 +195,7 @@ export default function Updates({ status, checks, pending, down, backups, steps,
         for (const step of steps.slice(start)) {
             setStates((s) => ({ ...s, [step]: 'running' }));
             try {
-                const res = await post(`/updates/step/${step}`);
+                const res = await post(`/updates/step/${step}`, step === 'fetch' ? { discard } : {});
                 setStates((s) => ({ ...s, [step]: 'done', [`${step}:msg`]: res.message }));
                 if (step === 'finish') setDone(res);
             } catch (e) {
@@ -224,24 +209,24 @@ export default function Updates({ status, checks, pending, down, backups, steps,
         setRunning(false);
     };
 
-    // After an error, ask the server where it got to (a step may have finished after a timeout) and carry on from there.
+    // After an error, ask where it got to (a step may have finished after a timeout) and carry on.
     const retry = () =>
         router.reload({
             only: ['pending', 'down'],
             onSuccess: (page) => {
                 const p = page.props.pending;
-                if (!p && failed === 'finish') return (window.location.href = '/updates');
-                run(p ? nextStep(steps, p.step) : 'download');
+                if (!p && ['finish', 'dependencies'].includes(failed)) return (window.location.href = '/updates');
+                run(p ? nextStep(steps, p.step) : 'fetch');
             },
         });
 
-    const restore = async (backup) => {
-        setRestoring(backup.version);
+    const rollback = async (b) => {
+        setRollingBack(b.short);
         try {
-            await post(`/updates/backups/${backup.id}/rollback`);
+            await post(`/updates/backups/${b.id}/rollback`);
             window.location.href = '/updates';
         } catch (e) {
-            setRestoring(null);
+            setRollingBack(null);
             setError(e.message);
         }
     };
@@ -250,9 +235,10 @@ export default function Updates({ status, checks, pending, down, backups, steps,
         <CentralLayout title="Updates">
             <PageHeader
                 title="Updates"
-                description={`Central Management is on version ${status.current}.`}
+                description={status.current ? `Running ${status.current.short} · ${status.current.subject}` : 'Updates come straight from your GitHub repository.'}
                 actions={
-                    !active && (
+                    !active &&
+                    connected && (
                         <Button variant="secondary" href="/updates?refresh=1" preserveScroll>
                             <RefreshCw size={16} /> Check for updates
                         </Button>
@@ -272,12 +258,12 @@ export default function Updates({ status, checks, pending, down, backups, steps,
                 )}
 
                 {pending && !active && (
-                    <Card title="An update was not finished" description={`Version ${pending.to} stopped after: ${STEP_LABELS[pending.step]?.toLowerCase() || pending.step}.`}>
+                    <Card title="An update was not finished" description={`Update to ${pending.to} stopped after: ${STEP_LABELS[pending.step]?.toLowerCase() || pending.step}.`}>
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <Button type="button" onClick={() => run(nextStep(steps, pending.step))}>
                                 Continue the update
                             </Button>
-                            {pending.step !== 'install' && (
+                            {!['pull', 'dependencies'].includes(pending.step) && (
                                 <Button type="button" variant="secondary" onClick={() => router.post('/updates/cancel', {}, { preserveScroll: true })}>
                                     Cancel it
                                 </Button>
@@ -286,23 +272,40 @@ export default function Updates({ status, checks, pending, down, backups, steps,
                     </Card>
                 )}
 
-                {restoring && (
+                {rollingBack && (
                     <Card>
                         <p className="flex items-center gap-3 text-sm font-medium text-zinc-900">
-                            <Loader2 size={18} className="animate-spin" /> Rolling back to version {restoring}…
+                            <Loader2 size={18} className="animate-spin" /> Rolling back to {rollingBack}…
                         </p>
                     </Card>
                 )}
 
-                {active ? (
-                    <Card title={done ? 'Update complete' : `Updating to version ${status.latest || pending?.to}`} description={done ? null : running ? 'Keep this page open. Central Management is offline for about a minute during the install step; websites simply check in again later.' : null}>
+                {!connected ? (
+                    <Card>
+                        <div className="flex items-start gap-3">
+                            <GitBranch size={22} className="mt-0.5 shrink-0 text-zinc-700" />
+                            <div className="min-w-0">
+                                <p className="font-semibold text-zinc-900">Connect this app to GitHub</p>
+                                <p className="mt-1 text-sm text-zinc-600">
+                                    This folder was installed from a zip, so it isn’t a Git copy yet. Connecting makes it one <strong>without changing any file</strong>; after that, “Update now” brings it to the latest version of{' '}
+                                    <strong>{source.effective ? `${source.effective} (${source.effective_branch})` : 'your repository'}</strong>. Your .env and stored files are never touched.
+                                </p>
+                                <Button type="button" className="mt-4" disabled={!source.effective || !ready} onClick={() => router.post('/updates/connect', {}, { preserveScroll: true })}>
+                                    <GitBranch size={16} /> Connect to GitHub
+                                </Button>
+                                {!source.effective && <p className="mt-2 text-xs text-zinc-500">Add the repository under “Update source” first.</p>}
+                            </div>
+                        </div>
+                    </Card>
+                ) : active ? (
+                    <Card title={done ? 'Update complete' : 'Updating Central Management'} description={done ? null : running ? 'Keep this page open. Central Management is offline for a moment while the files change; websites simply check in again later.' : null}>
                         <Progress steps={steps} states={states} error={error} />
                         {failed && (
                             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                 <Button type="button" onClick={retry}>
                                     <RotateCcw size={16} /> Try again
                                 </Button>
-                                {failed !== 'finish' && failed !== 'install' && (
+                                {['fetch', 'backup'].includes(failed) && (
                                     <Button type="button" variant="secondary" onClick={() => router.post('/updates/cancel', {}, { onSuccess: () => (window.location.href = '/updates') })}>
                                         Cancel update
                                     </Button>
@@ -314,77 +317,82 @@ export default function Updates({ status, checks, pending, down, backups, steps,
                                 <p className="flex items-center gap-2 font-semibold text-emerald-900">
                                     <ShieldCheck size={18} /> {done.message}
                                 </p>
-                                <p className="mt-1 text-sm text-emerald-800">Central Management is back online with the new version.</p>
+                                <p className="mt-1 text-sm text-emerald-800">Central Management is running the new version.</p>
                                 <Button type="button" className="mt-3" onClick={() => (window.location.href = '/updates')}>
                                     Done
                                 </Button>
                             </div>
                         )}
                     </Card>
+                ) : status.error ? (
+                    <Card>
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-600" />
+                            <div className="min-w-0">
+                                <p className="font-semibold text-zinc-900">Couldn't check for updates</p>
+                                <p className="mt-1 text-sm text-zinc-600">{status.error}</p>
+                            </div>
+                        </div>
+                    </Card>
                 ) : status.available ? (
                     <Card>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
                                 <Badge color="blue">New version</Badge>
-                                <h2 className="mt-2 text-xl font-bold tracking-tight text-zinc-900">Version {status.latest} is available</h2>
+                                <h2 className="mt-2 text-xl font-bold tracking-tight text-zinc-900">
+                                    {status.first_sync ? 'First update from GitHub' : `${status.behind} new ${status.behind === 1 ? 'change' : 'changes'} on ${status.branch}`}
+                                </h2>
                                 <p className="mt-0.5 text-sm text-zinc-500">
-                                    You have {status.current}
-                                    {status.published_at ? ` · released ${formatDate(status.published_at)}` : ''}
+                                    Latest: <code className="font-mono">{status.latest?.short}</code> · {date(status.latest?.date)}
                                 </p>
                             </div>
-                            <Button type="button" onClick={() => setConfirm(true)} disabled={!ready || !!status.error || !!pending} className="shrink-0">
+                            <Button type="button" onClick={() => setConfirm(true)} disabled={!ready || !!pending} className="shrink-0">
                                 <Download size={16} /> Update now
                             </Button>
                         </div>
-                        {status.error && <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{status.error}</p>}
-                        {status.notes_html && (
-                            <div className="mt-5 border-t border-zinc-100 pt-4">
-                                <h3 className="mb-2 text-sm font-semibold text-zinc-900">What's new</h3>
-                                <div className="prose prose-sm prose-zinc max-w-none" dangerouslySetInnerHTML={{ __html: status.notes_html }} />
-                            </div>
-                        )}
-                        {status.url && (
-                            <a href={status.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-900">
-                                Release page <ExternalLink size={14} />
-                            </a>
-                        )}
+                        <div className={`mt-5 border-t border-zinc-100 pt-4 ${status.commits.length ? '' : 'hidden'}`}>
+                            <h3 className="mb-2 text-sm font-semibold text-zinc-900">What's new</h3>
+                            <ul className="space-y-2">
+                                {status.commits.map((c) => (
+                                    <li key={c.short} className="flex items-start gap-2.5 text-sm">
+                                        <GitCommitHorizontal size={16} className="mt-0.5 shrink-0 text-zinc-400" />
+                                        <span className="min-w-0">
+                                            <span className="block text-zinc-800">{c.subject}</span>
+                                            <span className="block text-xs text-zinc-500">
+                                                <code className="font-mono">{c.short}</code> · {c.author} · {date(c.date)}
+                                            </span>
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        {justConnected && <p className="mt-4 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900">Just connected: this first update brings every file to the repository’s latest version.</p>}
                     </Card>
                 ) : (
                     <Card>
-                        {status.error ? (
-                            <div className="flex items-start gap-3">
-                                <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-600" />
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-zinc-900">Couldn't check for updates</p>
-                                    <p className="mt-1 text-sm text-zinc-600">{status.error}</p>
-                                </div>
+                        <div className="flex items-start gap-3">
+                            <CheckCircle2 size={22} className="mt-0.5 shrink-0 text-emerald-600" />
+                            <div className="min-w-0">
+                                <p className="font-semibold text-zinc-900">Central Management is up to date</p>
+                                <p className="mt-0.5 text-sm text-zinc-500">
+                                    Same as {status.branch} on GitHub{status.checked_at ? ` · checked ${date(status.checked_at)}` : ''}
+                                </p>
                             </div>
-                        ) : (
-                            <div className="flex items-start gap-3">
-                                <CheckCircle2 size={22} className="mt-0.5 shrink-0 text-emerald-600" />
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-zinc-900">Central Management is up to date</p>
-                                    <p className="mt-0.5 text-sm text-zinc-500">
-                                        Version {status.current}
-                                        {status.checked_at ? ` · checked ${new Date(status.checked_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </Card>
                 )}
 
                 {error && !active && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
 
                 <Checks checks={checks} />
-                <Backups backups={backups} onRestore={restore} />
+                <Backups backups={backups} onRollback={rollback} />
                 <Source source={source} />
             </div>
 
             <Modal
                 open={confirm}
                 onClose={() => setConfirm(false)}
-                title={`Update to version ${status.latest}?`}
+                title="Update Central Management now?"
                 footer={
                     <>
                         <Button type="button" variant="secondary" onClick={() => setConfirm(false)}>
@@ -392,9 +400,10 @@ export default function Updates({ status, checks, pending, down, backups, steps,
                         </Button>
                         <Button
                             type="button"
+                            disabled={changed.length > 0 && !discard}
                             onClick={() => {
                                 setConfirm(false);
-                                run('download');
+                                run('fetch');
                             }}
                         >
                             Start update
@@ -403,11 +412,24 @@ export default function Updates({ status, checks, pending, down, backups, steps,
                 }
             >
                 <ul className="list-disc space-y-1.5 pl-5">
-                    <li>Your database is backed up first, and the current version is kept so you can go back.</li>
-                    <li>Central Management is offline for about a minute while the new version installs. Websites keep selling; their check-ins wait.</li>
-                    <li>Database migrations and cache clearing run automatically. No terminal or Composer needed.</li>
-                    <li>Keep this page open until it says the update is complete.</li>
+                    <li>The latest code comes straight from GitHub ({status.branch}).</li>
+                    <li>The database is backed up first, and the current version is kept so you can roll back.</li>
+                    <li>Composer runs if the PHP packages changed; migrations and cache clearing always run. No terminal needed.</li>
+                    <li>Central Management is offline for a moment. Websites keep selling; their check-ins wait.</li>
                 </ul>
+                {changed.length > 0 && (
+                    <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
+                        <p className="font-semibold">These files were changed on the server and will be replaced:</p>
+                        <ul className="mt-1 max-h-32 overflow-auto font-mono text-xs">
+                            {changed.map((f) => (
+                                <li key={f}>{f}</li>
+                            ))}
+                        </ul>
+                        <div className="mt-3">
+                            <Toggle label="Replace changed files" description="Move these changes into the repository first if you want to keep them." checked={discard} onChange={setDiscard} />
+                        </div>
+                    </div>
+                )}
             </Modal>
         </CentralLayout>
     );

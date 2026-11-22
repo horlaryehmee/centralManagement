@@ -30,9 +30,13 @@ Separate application with its own database and login. It never connects to clien
 
 ## Updating Central Management itself (one click)
 
-1. This repo: bump `VERSION`, commit, `git tag v1.2.0 && git push origin v1.2.0`. GitHub builds `central-v1.2.0.zip` (Composer packages and compiled assets included).
-2. In Central: **Updates** (menu) → **Update now**. It downloads and checks the zip, backs up the database, swaps the files in (automatic rollback on any error), runs the migrations and clears the caches. No terminal, Composer or Node.js needed on the server.
-3. Set the repository (and a read-only access token for a private repository) once under **Updates → Update source**, or with `CENTRAL_UPDATE_REPO` / `CENTRAL_UPDATE_TOKEN` in `.env`. **Previous versions** gives one-click rollback and the database backup taken before each update.
+Straight from this GitHub repository, no release zips:
+
+1. Push your changes to `main` (with `public/build` built and committed, as usual).
+2. In Central: **Updates** (menu) shows the new commits → **Update now**. It fetches the branch with Git, backs up the database, updates the files (back to the previous commit on any error), runs `composer install` only when `composer.json`/`composer.lock` changed, then the migrations and cache clearing. No terminal needed.
+3. Once: set the repository, branch and (for a private repository) a read-only access token under **Updates → Update source**, or `CENTRAL_UPDATE_REPO` / `CENTRAL_UPDATE_BRANCH` / `CENTRAL_UPDATE_TOKEN` in `.env`. Installed from the zip? Press **Connect to GitHub** once (no file changes). **Previous versions** gives one-click rollback to the commit before each update (migrations undone) and its database backup.
+
+Needs Git and `proc_open` on the server (cPanel has both; the page checks). Composer is found automatically or downloaded (checksum verified). `.env`, `storage/` and `vendor/` aren't in Git, so updates never touch them.
 
 ## Quick start (local development)
 

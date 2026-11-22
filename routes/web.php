@@ -38,6 +38,7 @@ Route::middleware('auth')->group(function () {
     Route::post('updates/step/{step}', [\App\Http\Controllers\UpdateController::class, 'step'])->name('updates.step');
     Route::post('updates/cancel', [\App\Http\Controllers\UpdateController::class, 'cancel'])->name('updates.cancel');
     Route::post('updates/online', [\App\Http\Controllers\UpdateController::class, 'online'])->name('updates.online');
+    Route::post('updates/connect', [\App\Http\Controllers\UpdateController::class, 'connect'])->middleware('throttle:10,1')->name('updates.connect');
     Route::put('updates/source', [\App\Http\Controllers\UpdateController::class, 'source'])->name('updates.source');
     Route::post('updates/backups/{backup}/rollback', [\App\Http\Controllers\UpdateController::class, 'rollback'])->name('updates.rollback');
     Route::get('updates/backups/{backup}/database', [\App\Http\Controllers\UpdateController::class, 'database'])->name('updates.database');
