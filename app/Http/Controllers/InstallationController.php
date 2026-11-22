@@ -72,7 +72,34 @@ class InstallationController extends Controller
             ],
             'deployments' => $installation->targets()->with('deployment.release:id,type,slug,version')->latest('id')->limit(50)->get(),
             'events' => $installation->events()->latest('id')->limit(40)->get(),
+            'backups' => $this->backupList($installation),
         ]);
+    }
+
+    protected function backupList(Installation $installation): array
+    {
+        app(\App\Services\BackupService::class)->expireStale($installation);
+
+        return [
+            'supported' => $installation->supports('backup'),
+            'keep' => (int) config('central.backups_keep'),
+            'items' => $installation->backups()->with('requester:id,name')->latest('id')->limit(30)->get()->map(fn (\App\Models\Backup $b) => [
+                'id' => $b->id,
+                'status' => $b->status,
+                'status_label' => \App\Models\Backup::STATUSES[$b->status] ?? $b->status,
+                'active' => $b->isActive(),
+                'include_files' => $b->include_files,
+                'size' => $b->size ? \App\Services\BackupService::humanBytes($b->size) : null,
+                'progress' => $b->status === 'uploading' ? \App\Services\BackupService::humanBytes($b->received_bytes) : null,
+                'contents' => $b->contents,
+                'encrypted' => $b->encrypted,
+                'error' => $b->error,
+                'requested_by' => $b->requester?->name,
+                'created_at' => $b->created_at,
+                'completed_at' => $b->completed_at,
+                'download_url' => $b->status === 'completed' ? route('backups.download', $b) : null,
+            ]),
+        ];
     }
 
     public function edit(Installation $installation): Response

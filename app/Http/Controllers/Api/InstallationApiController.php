@@ -97,6 +97,9 @@ class InstallationApiController extends Controller
             'modules.*.version' => ['required', 'string', 'max:40'],
             'modules.*.enabled' => ['boolean'],
             'modules.*.requires' => ['nullable', 'array'],
+            // What the agent can do (newer agents only), e.g. ["backup"].
+            'capabilities' => ['nullable', 'array', 'max:20'],
+            'capabilities.*' => ['string', 'max:40', 'regex:/^[a-z0-9_-]+$/'],
         ]);
 
         DB::transaction(function () use ($installation, $data) {
@@ -108,6 +111,7 @@ class InstallationApiController extends Controller
                 'php_version' => $data['php'] ?? null,
                 'framework_version' => $data['framework'] ?? null,
                 'server' => array_slice((array) ($data['server'] ?? []), 0, 30),
+                'capabilities' => array_values(array_unique((array) ($data['capabilities'] ?? []))),
             ])->save();
 
             $slugs = [];
@@ -121,10 +125,17 @@ class InstallationApiController extends Controller
             InstallationModule::query()->where('installation_id', $installation->id)->whereNotIn('slug', $slugs ?: ['__none__'])->delete();
         });
 
+        // At most one instruction. An update already handed over finishes first; otherwise a
+        // waiting backup goes before new updates (backups also work while updates are suspended).
+        $installation = $installation->fresh(['client']);
+        $deploy = $this->deployments->instructionsFor($installation);
+        $updateRunning = $installation->targets()->whereIn('status', ['delivered', 'running', 'rolling_back'])->exists();
+        $backup = $updateRunning ? null : app(\App\Services\BackupService::class)->instructionFor($installation);
+
         return response()->json([
             'status' => $installation->canReceiveUpdates() ? 'active' : 'suspended',
             'check_interval' => $installation->check_interval,
-            'instructions' => $this->deployments->instructionsFor($installation->fresh(['client'])),
+            'instructions' => $backup ? [$backup] : $deploy,
             'server_time' => now()->toIso8601String(),
         ]);
     }

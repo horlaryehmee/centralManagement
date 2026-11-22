@@ -22,6 +22,7 @@ class Installation extends Model
         return [
             'secret' => 'encrypted',
             'server' => 'array',
+            'capabilities' => 'array',
             'is_test' => 'boolean',
             'enrollment_expires_at' => 'datetime',
             'secret_issued_at' => 'datetime',
@@ -53,6 +54,17 @@ class Installation extends Model
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    public function backups(): HasMany
+    {
+        return $this->hasMany(Backup::class);
+    }
+
+    /** Whether the website's agent said it can do this (e.g. "backup"); older agents report nothing. */
+    public function supports(string $capability): bool
+    {
+        return in_array($capability, (array) $this->capabilities, true);
     }
 
     /**

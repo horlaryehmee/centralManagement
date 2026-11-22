@@ -20,7 +20,7 @@ Both apps use the same stack (Laravel 12, Inertia 2, React 19, Tailwind 4, MySQL
 | Clients, installations, releases, deployments, event log | Its own shop, database, uploads, admin |
 | Signs release manifests (Ed25519) | Verifies signatures with the key pinned at connection |
 | Never connects to sites; only answers their HTTPS calls | All traffic is outgoing HTTPS (cron + admin) |
-| Never sees any shop data | Sends only versions, modules, PHP and basic server facts |
+| Sees shop data only in backups you request (stored encrypted) | Sends versions, modules, PHP and basic server facts; sends a backup only when asked (the owner can switch this off) |
 
 The storefront never calls central. If central is offline, sites keep selling; only check-ins fail (logged, retried).
 
@@ -85,9 +85,21 @@ Rollback: the agent undoes that update's migration batch (only if the release sa
 | Revocation | Suspend (no updates, still monitored) or revoke (credentials stop working) per installation; suspend a client to pause all its sites |
 | Packages | Ed25519-signed manifest containing package SHA-256 + per-file SHA-256; secret key stored outside `public/`, never sent |
 | Isolation | Every API lookup is scoped to the calling installation; other installations' targets return 404 |
-| No remote commands | Instructions are data only (`deploy` / `rollback` + target ID). The agent runs only its own fixed steps |
+| No remote commands | Instructions are data only (`deploy` / `rollback` / `backup` + target ID). The agent runs only its own fixed steps |
 | Rate limits | Registration 10/min per IP; signed calls 120/min per installation; admin login 5/min |
 | Central never touches sites | No credentials to client hosting or databases exist anywhere in central |
+
+## Backups
+
+Requested from an installation's page (**Create backup**, with or without uploaded files). Pull-based, like updates:
+
+1. The request waits for the website's next check-in. Only agents that report the `backup` capability get it, and an update already handed over finishes first.
+2. The website builds one zip: `database.sql.gz` (plain-PHP dump, importable with phpMyAdmin), `files/public/*` (uploads) and `files/receipts/*` when files are included, and `backup.json`. Never `.env`, code or logs.
+3. It uploads the zip in signed chunks (`X-Offset`; the size fits central's `post_max_size`). Each cron run sends about 45 seconds' worth and the next run continues. Chunks are idempotent; a gap is answered with the offset to continue from.
+4. Central checks the size and SHA-256, then encrypts the file at rest (libsodium secretstream, key derived from `APP_KEY`) under `storage/app/private/backups/<installation>/`. **Download** decrypts on the fly; a changed file fails instead of producing a damaged zip.
+5. The newest `CENTRAL_BACKUPS_KEEP` (10) per website are kept. Requests not picked up within 24 hours are marked "No response"; uploads idle for 6 hours fail.
+
+Backups contain customers and orders. Only signed-in central admins can download them, every request and download is in the event log, and the website writes each backup to its own update log. Site owners can refuse backups with `AGENT_ALLOW_BACKUPS=false`. **Losing central's `APP_KEY` makes stored backups unreadable**, so keep a copy of it. Restoring is manual: import the SQL, copy the files back.
 
 ## Known limits and risks
 

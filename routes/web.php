@@ -33,6 +33,11 @@ Route::middleware('auth')->group(function () {
     Route::patch('installations/{installation}/status', [InstallationController::class, 'status'])->name('installations.status');
     Route::post('installations/{installation}/enrollment', [InstallationController::class, 'enrollment'])->name('installations.enrollment');
 
+    // Website backups: request one, download it (decrypted on the fly), delete it.
+    Route::post('installations/{installation}/backups', [\App\Http\Controllers\BackupController::class, 'store'])->middleware('throttle:10,1')->name('backups.store');
+    Route::get('backups/{backup}/download', [\App\Http\Controllers\BackupController::class, 'download'])->name('backups.download');
+    Route::delete('backups/{backup}', [\App\Http\Controllers\BackupController::class, 'destroy'])->name('backups.destroy');
+
     Route::get('github', [\App\Http\Controllers\GithubController::class, 'index'])->name('github.index');
     Route::post('github', [\App\Http\Controllers\GithubController::class, 'store'])->name('github.store');
     Route::put('github/{source}', [\App\Http\Controllers\GithubController::class, 'update'])->name('github.update');

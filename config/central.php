@@ -29,4 +29,17 @@ return [
 
     // Largest accepted upload, in megabytes (PHP's upload_max_filesize must allow it too).
     'max_package_mb' => (int) env('CENTRAL_MAX_PACKAGE_MB', 300),
+
+    // Website backups (requested from an installation's page; stored encrypted, never inside public/).
+    'backups_disk' => 'local',
+    // Largest backup accepted, in megabytes.
+    'backup_max_mb' => (int) env('CENTRAL_BACKUP_MAX_MB', 4096),
+    // Upload chunk size in megabytes (lowered automatically to fit PHP's post_max_size).
+    'backup_chunk_mb' => (int) env('CENTRAL_BACKUP_CHUNK_MB', 8),
+    // Completed backups kept per website (older ones are deleted automatically).
+    'backups_keep' => (int) env('CENTRAL_BACKUPS_KEEP', 10),
+    // A request the website hasn't picked up after this many hours is marked "no response".
+    'backup_pickup_hours' => 24,
+    // An upload with no progress for this many hours is marked failed.
+    'backup_stall_hours' => 6,
 ];

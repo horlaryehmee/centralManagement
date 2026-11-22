@@ -3,6 +3,7 @@ import { Copy, KeyRound, Pencil, Rocket } from 'lucide-react';
 import { useState } from 'react';
 import { ago, dateTime, Details, EventList, InstallationStatus, TargetStatus } from '@/Components/central';
 import { ActionMenu, Badge, Button, Card, ConfirmModal, PageHeader } from '@/Components/ui';
+import Backups from '@/Components/Backups';
 import CentralLayout from '@/Layouts/CentralLayout';
 
 function CopyField({ label, value }) {
@@ -25,7 +26,7 @@ function CopyField({ label, value }) {
     );
 }
 
-export default function InstallationShow({ installation: i, deployments, events }) {
+export default function InstallationShow({ installation: i, deployments, events, backups }) {
     const { flash } = usePage().props;
     const [confirm, setConfirm] = useState(null);
     const enrollment = flash?.enrollment;
@@ -100,6 +101,7 @@ export default function InstallationShow({ installation: i, deployments, events 
                             <p className="px-5 py-6 text-center text-sm text-zinc-400">No updates sent to this website yet.</p>
                         )}
                     </Card>
+                    {backups && <Backups installation={i} backups={backups} />}
                     <Card title="Activity">
                         <EventList events={events} showInstallation={false} />
                     </Card>

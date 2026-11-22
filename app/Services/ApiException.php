@@ -8,7 +8,7 @@ use RuntimeException;
 /** An error returned to an installation as {"error": code, "message": …}. Expected, so not written to the error log. */
 class ApiException extends RuntimeException
 {
-    public function __construct(public string $errorCode, string $message, public int $status = 400)
+    public function __construct(public string $errorCode, string $message, public int $status = 400, public array $extra = [])
     {
         parent::__construct($message);
     }
@@ -20,6 +20,6 @@ class ApiException extends RuntimeException
 
     public function render(): JsonResponse
     {
-        return response()->json(['error' => $this->errorCode, 'message' => $this->getMessage()], $this->status);
+        return response()->json(['error' => $this->errorCode, 'message' => $this->getMessage(), ...$this->extra], $this->status);
     }
 }

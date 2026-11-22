@@ -111,6 +111,22 @@ The only way a target becomes `succeeded`. `retryable: true` failures are retrie
 
 The signature covers the exact bytes of this JSON string. The agent verifies the signature, then the package checksum, then every extracted file against `files`.
 
+## Backups
+
+The heartbeat may carry `{ "type": "backup", "target": 5, "include_files": true }`, but only to agents whose heartbeat listed `"capabilities": ["backup"]`.
+
+### `POST backups/{id}/accept`
+
+→ `{ "target", "include_files", "chunk_size", "max_size", "received" }`. `received` is the number of bytes already stored, for resuming. `409 not_deliverable` once the backup is finished, failed or cancelled; `404` for other installations' backups.
+
+### `POST backups/{id}/chunk`
+
+Raw bytes (`application/octet-stream`, signed over the raw body) with header `X-Offset`. → `{ "received": n }`. Sending a stored chunk again is harmless; a gap returns `409 offset_mismatch` with `received`. `413 too_large` past `CENTRAL_BACKUP_MAX_MB`.
+
+### `POST backups/{id}/complete`
+
+`{ "result": "completed", "size", "sha256", "contents": { "database": true, "files": 435, "version": "1.3.1" } }` or `{ "result": "failed", "error" }` → `{ "ok", "status", "error" }`. A size or checksum mismatch marks the backup failed.
+
 ## Error codes the agent reports
 
 `bad_signature`, `untrusted_key`, `bad_manifest`, `manifest_mismatch`, `incompatible`, `modified_files`, `checksum` (retryable), `network` (retryable), `server_not_ready`, `install_error`, `finish_failed`, `interrupted` (retryable), `no_backup`, `rollback_error`.
