@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Boxes, Building2, CheckCircle2, LayoutDashboard, LogOut, Rocket, Server, X, XCircle } from 'lucide-react';
+import { Boxes, Building2, CheckCircle2, LayoutDashboard, LogOut, RefreshCw, Rocket, Server, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const NAV = [
@@ -42,7 +42,8 @@ function Flash() {
 
 export default function CentralLayout({ title, children }) {
     const { url } = usePage();
-    const { auth, app_name } = usePage().props;
+    const { auth, app_name, update_available } = usePage().props;
+    const onUpdates = isActive(url, { href: '/updates' });
 
     return (
         <div className="app-shell min-h-screen bg-zinc-50">
@@ -60,6 +61,10 @@ export default function CentralLayout({ title, children }) {
                             <item.icon size={18} /> {item.label}
                         </Link>
                     ))}
+                    <Link href="/updates" className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${onUpdates ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}>
+                        <RefreshCw size={18} /> Updates
+                        {update_available && <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${onUpdates ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-800'}`}>New</span>}
+                    </Link>
                 </nav>
                 <div className="border-t border-zinc-100 p-3">
                     <p className="truncate px-3 pb-2 text-xs text-zinc-400">{auth.user?.email}</p>
@@ -77,9 +82,15 @@ export default function CentralLayout({ title, children }) {
                         </span>
                         {app_name}
                     </span>
-                    <button type="button" onClick={() => router.post('/logout')} className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100" aria-label="Log out">
-                        <LogOut size={18} />
-                    </button>
+                    <span className="flex items-center gap-1">
+                        <Link href="/updates" className={`relative rounded-full p-2 ${onUpdates ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`} aria-label={update_available ? 'Updates (new version available)' : 'Updates'}>
+                            <RefreshCw size={18} />
+                            {update_available && <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-white" aria-hidden />}
+                        </Link>
+                        <button type="button" onClick={() => router.post('/logout')} className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100" aria-label="Log out">
+                            <LogOut size={18} />
+                        </button>
+                    </span>
                 </header>
                 <main key={url.split('?')[0]} className="mx-auto max-w-6xl animate-page-in px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 lg:px-8 lg:py-8">
                     {children}

@@ -24,6 +24,8 @@ npm install --include=dev && npm run build      # or upload a public/build built
   (starts scheduled deployments, releases retries, marks silent sites "no response").
 - For package uploads from the browser, raise `upload_max_filesize` / `post_max_size` (e.g. 300M). Or use `php artisan central:import-release` (no limit).
 
+**Updating the central app later:** **Updates** in the menu. Push a version tag to this repository (GitHub builds the ready-to-install zip), then press **Update now**: download + checksum, database backup, file swap with automatic rollback, migrations and cache clearing, all from the browser. `.env` and `storage/` (signing key, packages, website backups) are never replaced. If something goes wrong: **Previous versions → Roll back**, or **Bring it back online** if it stays in maintenance mode. The repository and access token are set under **Updates → Update source** (or `CENTRAL_UPDATE_REPO` / `CENTRAL_UPDATE_TOKEN`).
+
 ## 2. Register a client and connect their website
 
 1. Central → **Clients → Register client** (business, contact, hosting details).

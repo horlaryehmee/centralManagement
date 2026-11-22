@@ -28,6 +28,12 @@ Separate application with its own database and login. It never connects to clien
 2. GitHub builds the package. Central imports it (Releases → **From GitHub**, one click, or automatically every hour).
 3. Publish it (or let auto-publish do it), then **Deploy** to all, some or one site.
 
+## Updating Central Management itself (one click)
+
+1. This repo: bump `VERSION`, commit, `git tag v1.2.0 && git push origin v1.2.0`. GitHub builds `central-v1.2.0.zip` (Composer packages and compiled assets included).
+2. In Central: **Updates** (menu) → **Update now**. It downloads and checks the zip, backs up the database, swaps the files in (automatic rollback on any error), runs the migrations and clears the caches. No terminal, Composer or Node.js needed on the server.
+3. Set the repository (and a read-only access token for a private repository) once under **Updates → Update source**, or with `CENTRAL_UPDATE_REPO` / `CENTRAL_UPDATE_TOKEN` in `.env`. **Previous versions** gives one-click rollback and the database backup taken before each update.
+
 ## Quick start (local development)
 
 ```bash

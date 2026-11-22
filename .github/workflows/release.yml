@@ -2,8 +2,11 @@
 #
 #   1. Put the version in VERSION and commit.  2. git tag v1.0.0 && git push origin v1.0.0
 #
-# The GitHub release gets central-v1.0.0.zip: upload it to your hosting, extract,
-# open the address and follow the setup wizard. No terminal or Composer needed.
+# The GitHub release gets central-v1.0.0.zip (Composer packages and compiled assets
+# included). New install: upload it, extract, open the address and follow the setup
+# wizard. Existing install: Updates in the menu shows the new version; "Update now"
+# installs it (database backup, file swap with automatic rollback, migrations).
+# No terminal, Composer or Node.js needed on the server.
 
 name: Release
 

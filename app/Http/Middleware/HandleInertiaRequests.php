@@ -25,6 +25,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'app_name' => config('app.name'),
             'auth' => ['user' => fn () => $request->user()?->only('id', 'name', 'email')],
+            // From the last cached update check only; never contacts GitHub on page loads.
+            'update_available' => fn () => $request->user() ? (bool) (app(\App\Services\SelfUpdate\Updater::class)->cachedStatus()['available'] ?? false) : false,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

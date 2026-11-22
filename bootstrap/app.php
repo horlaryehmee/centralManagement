@@ -35,6 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'central.installation' => AuthenticateInstallation::class,
             'central.https' => RequireHttps::class,
         ]);
+        // During a self-update the app is briefly in maintenance mode. The Updates page (which drives the
+        // update) and login stay reachable; the websites' API answers 503 meanwhile and they retry later.
+        $middleware->preventRequestsDuringMaintenance(except: ['updates', 'updates/*', 'login', 'build/*']);
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route('dashboard'));
         // Behind a proxy or load balancer (common on hosting), trust its HTTPS headers.
